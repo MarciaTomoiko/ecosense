@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monitoramento - EcoSense</title>
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="./css/monitoramento.css">
+  <style>
+    body {
+      background: linear-gradient(135deg, #e7ede1, #c9e1b1);
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+
+    header {
+      background: #73a35a;
+      color: #fff;
+      padding: 15px;
+      text-align: center;
+      font-size: 1.6rem;
+      font-weight: bold;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    main {
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+
+    h2 {
+      color: #4c4c4c;
+      margin-bottom: 15px;
+    }
+
+    .lixeiras {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 25px;
+      margin-bottom: 30px;
+    }
+
+    .card {
+      background: #fff;
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      text-align: center;
+    }
+
+    .card:hover {
+      transform: scale(1.03);
+      box-shadow: 0 5px 12px rgba(0,0,0,0.2);
+    }
+
+    .card i {
+      font-size: 3rem;
+      color: rgb(125, 126, 125);
+      margin-bottom: 10px;
+      animation: float 2.5s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-6px);
+      }
+    }
+
+    .card h3 {
+      margin-bottom: 10px;
+      color: rgb(49, 51, 49);
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 20px;
+      border-radius: 10px;
+      background: #eee;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .progress {
+      height: 100%;
+      text-align: right;
+      padding-right: 5px;
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: bold;
+      border-radius: 10px;
+      transition: width 1.5s ease;
+    }
+
+    .verde { background: #308134; }
+    .amarelo { background: #be8b08; color: #0f0f0f; }
+    .vermelho { background: #960808; }
+
+    .alerta {
+      margin-top: 8px;
+      font-size: 0.9rem;
+      font-weight: bold;
+      color: #d32f2f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+
+    .grafico {
+      background: #fff;
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+      height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #666;
+      font-style: italic;
+    }
+
+    footer {
+      text-align: center;
+      color: #555;
+      font-size: 0.9rem;
+      margin-top: 40px;
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="titulo">Sistema de Monitoramento - EcoSense</span>
+    <i class='bx bxs-user-circle perfil-icon'></i>
+  </header>
+
+  <main>
+    <h2>Status das Lixeiras</h2>
+
+    <div class="lixeiras">
+      <div class="card">
+        <i class='bx bxs-trash'></i>
+        <h3>Lixeira 1</h3>
+        <div class="progress-bar">
+          <div class="progress verde" style="width: 45%;">45%</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <i class='bx bxs-trash'></i>
+        <h3>Lixeira 2</h3>
+        <div class="progress-bar">
+          <div class="progress amarelo" style="width: 70%;">70%</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <i class='bx bxs-trash'></i>
+        <h3>Lixeira 3</h3>
+        <div class="progress-bar">
+          <div class="progress vermelho" style="width: 92%;">92%</div>
+        </div>
+        <p class="alerta"><i class="bx bxs-error"></i> Lixeira quase cheia!</p>
+      </div>
+    </div>
+
+    <h2>Evolução Semanal</h2>
+    <div class="grafico">
+  <canvas id="graficoLixo" width="400" height="200"></canvas>
+</div>
+  </main>
+
+  <footer>
+    <p>EcoSense © 2025 - Sistema de Monitoramento de Lixeiras Inteligente</p>
+  </footer>
+  <script>
+  // Mapeia cada ID do JSON com a lixeira correspondente
+  const mapaLixeiras = {
+    "CCBLX0001": 0, // Lixeira 1
+    "CCBLX0002": 1, // Lixeira 2
+    "CCBLX0003": 2  // Lixeira 3
+  };
+
+  async function atualizarLixeiras() {
+    try {
+      const res = await fetch("/receber");
+      const data = await res.json();
+
+      // Espera algo como: { "id": "CCBLX0001", "nivelLixo": 3 }
+      if (data && data.id && mapaLixeiras[data.id] !== undefined) {
+        const indice = mapaLixeiras[data.id];
+        const cards = document.querySelectorAll(".card");
+        const card = cards[indice];
+        const progress = card.querySelector(".progress");
+
+        // Converte o nível (0–10) em porcentagem
+        const nivel = data.nivelLixo * 10;
+        progress.style.width = `${nivel}%`;
+        progress.textContent = `${nivel}%`;
+
+        // Define a cor conforme o nível
+        if (nivel < 50) {
+          progress.className = "progress verde";
+        } else if (nivel < 80) {
+          progress.className = "progress amarelo";
+        } else {
+          progress.className = "progress vermelho";
+        }
+
+        console.log(` ${data.id} atualizado para ${nivel}%`);
+      } else {
+        console.warn(" Nenhum dado ou ID não mapeado:", data);
+      }
+    } catch (err) {
+      console.error("Erro ao buscar dados:", err);
+    }
+  }
+
+  // Atualiza a cada 3 segundos
+  setInterval(atualizarLixeiras, 3000);
+</script>
+<script>
+async function carregarHistorico() {
+  try {
+    const resposta = await fetch("http://localhost:3000/historico");
+    const dados = await resposta.json();
+
+    if (!Array.isArray(dados) || dados.length === 0) {
+      console.warn(" Nenhum dado de histórico recebido");
+      return;
+    }
+
+    // Ordena por data e hora
+    const dadosOrdenados = dados.sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
+
+    // Cria labels (datas) e valores (nível de lixo)
+    const labels = dadosOrdenados.map(d => 
+      new Date(d.data_hora).toLocaleString("pt-BR", { 
+        day: "2-digit", 
+        hour: "2-digit", 
+        minute: "2-digit" 
+      })
+    );
+    const valores = dadosOrdenados.map(d => d.nivel_lixo);
+
+    // Se já houver gráfico anterior, destrói antes de criar outro
+    if (window.graficoLixo) {
+      window.graficoLixo.destroy();
+    }
+
+    // Cria o gráfico
+    const ctx = document.getElementById("graficoLixo").getContext("2d");
+    window.graficoLixo = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: "Nível de Lixo (0–10)",
+          data: valores,
+          borderColor: "#be8b08",
+          backgroundColor: "rgba(190, 139, 8, 0.2)",
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 4,
+          pointBackgroundColor: "#308134"
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: true, position: "top" }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 10,
+            title: {
+              display: true,
+              text: "Nível de Lixo"
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: "Data e Hora"
+            }
+          }
+        }
+      }
+    });
+  } catch (erro) {
+    console.error(" Erro ao carregar histórico:", erro);
+  }
+}
+
+// Carrega e atualiza o gráfico a cada 10 segundos
+carregarHistorico();
+setInterval(carregarHistorico, 10000);
+</script>
+</body>
+</html>
